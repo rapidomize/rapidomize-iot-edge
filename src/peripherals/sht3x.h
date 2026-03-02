@@ -44,12 +44,10 @@ class Sht3x: public Peripheral{
         //default
         conf["SDA"] = 4;
         conf["SCL"] = 16;
-        conf["I2C_ADDRESS"] = SHT31_DEFAULT_ADDR; //default 0x44 - Set to 0x45 for alternate i2c addr
+        char buf[10];
+        sprintf(buf, "%d", SHT31_DEFAULT_ADDR); //default 0x44 - Set to 0x45 for alternate i2c addr
+        conf["I2C_ADDRESS"] = buf; 
         configure();
-
-        sda = (uint8_t)conf["SDA"];
-        scl = (uint8_t)conf["SCL"];
-        i2caddr = (uint8_t)conf["I2C_ADDRESS"];
     }
 
     char * confpg(){
@@ -60,8 +58,16 @@ class Sht3x: public Peripheral{
 
     void init(JsonDocument *jconf) {
         Peripheral::init(jconf);
-        if(!enabled) return;
         
+        sda = (uint8_t)conf["SDA"];
+        scl = (uint8_t)conf["SCL"];
+        i2caddr = (uint8_t)std::stoi((const char*)conf["I2C_ADDRESS"], nullptr, 16);
+
+        if(!enabled) {
+            inited = false;
+            return;
+        }
+
         Wire.begin(sda, scl); //SDA=GPIO4  SCL=GPIO16 
 
         if (!sht3x.begin(i2caddr)) {   

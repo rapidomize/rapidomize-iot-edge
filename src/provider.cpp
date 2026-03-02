@@ -237,6 +237,19 @@ void ConProvider::scan() {
   //delay(500);
 }
 
+String wifiStatus(){
+    String status;
+    switch (WiFi.status()){
+      case WL_NO_SSID_AVAIL: status =  "WL_NO_SSID_AVAIL"; break;
+      case WL_CONNECT_FAILED:  status = "WL_CONNECT_FAILED. Check SSID/Password!"; break;
+      case WL_CONNECTION_LOST:  status = "WL_CONNECTION_LOST"; break;
+      case WL_DISCONNECTED:  status = "WL_DISCONNECTED";  break;
+      default:
+        break;
+    }
+    return status;
+}
+
 bool ConProvider::connectWiFi(bool setup){
     if(WiFi.isConnected() && WiFi.SSID() == wifi_ssid) return false;
     
@@ -248,20 +261,16 @@ bool ConProvider::connectWiFi(bool setup){
     int retry = 0;
     // Wait for connection
     while (WiFi.status() != WL_CONNECTED) {
-      if(WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_DISCONNECTED){
-          if(retry++ > 100){
-            Utils::buzzer(2);
-            log(PSTR("Invalid SSID/Password! %s!!!"), 
-                WiFi.status() == WL_CONNECT_FAILED?"CONNECT_FAILED":WiFi.status() == WL_DISCONNECTED?"DISCONNECTED":"");
-            return false;
-          }
-      } 
+      log(PSTR("Cannot connect to WiFi, status: %s"), wifiStatus());
+
+      if(retry++ > 10) {
+        Utils::buzzer(2);
+        retry = 0;
+      }
       delay(500);
-      log(PSTR("WiFi status: %d, .. "), WiFi.status());
     }
 
     log(PSTR("Connected to WiFi SSID %s IP address: %s"), wifi_ssid.c_str(), WiFi.localIP().toString().c_str());
-    //Utils::buzzer(2);
 
     /* if (MDNS.begin("rapidomize")) {
       Serial.println(F("MDNS responder started"));
@@ -281,41 +290,56 @@ bool ConProvider::connectMQTT(bool setup){
       log(PSTR("MQTT connection failed! Invalid Connection details: ssl://%s:%d"), host.c_str(), port);
       return false;
     } 
+
+    if(!haswifi){
+      connectWiFi();
+    }
     // sslClient.setFingerprint(finger_print);
     //sslClient.setTrustAnchors(&cert);
     //sslClient.setInsecure();
+    int retry = 0, cnt = 0;
     if(wifiClient.connected())  wifiClient.flush();
-    wifiClient.stop();
-    log(PSTR("Connecting to MQTT broker: ssl://%s:%d, with ClientID: %s Username: %s Password: %s topic: %s"), 
-            host.c_str(), port, clientId.c_str(), username.c_str(), password.c_str(), topic.c_str());
+    else{
+      wifiClient.stop();//FIXME: ??
+      wifiClient.setTimeout(2);
 
-    int err;
-    int count=0;
-    while(!(err = wifiClient.connect(host.c_str(), port))){
-      Serial.print("?");
-      if (count++ > 5) {
+      log(PSTR("Connecting to MQTT broker: ssl://%s:%d, with ClientID: %s Username: %s Password: xxxxxx topic: %s"), 
+              host.c_str(), port, clientId.c_str(), username.c_str(), topic.c_str());//password.c_str()
+
+      int err;
+      while(!(err = wifiClient.connect(host.c_str(), port))){
+        log(PSTR("Failed connecting to MQTT broker: ssl://%s:%d, ...retrying"), host.c_str(), port);
+        if(WiFi.status() != WL_CONNECTED){
+          log(PSTR("Cannot connect to WiFi, status: %s"), wifiStatus());
           Utils::buzzer(2);
-          log(PSTR("MQTT connection failed! Error code = %d"),  err);
-          //Serial.println(sslClient.getLastSSLError());
           return false;
+        }
+        if(cnt++ > 25) {
+          Utils::buzzer(1);
+          cnt = 0;
+        }
+        delay(200);
       }
+      mqttClient->setClient(wifiClient);
     }
     
-    mqttClient->setClient(wifiClient);
-    if(!mqttClient->connected()){
-        if(mqttClient->connect(clientId.c_str(), username.c_str(), password.c_str())){//mqttClient->connect().connect(HOST, PORT)){
-            //Utils::buzzer(2);
-            // subscribe to a topic:
-            //log(PSTR("Subscribing to topic: %s"), subtopic);
-            //mqttClient->subscribe(subtopic);
-        }else{
-            Utils::buzzer(2);
-            log(PSTR("Failed connecting to MQTT broker: ssl://%s:%d"), host.c_str(), port);
-            return false;
-        }
+    retry = 0, cnt = 0;
+    while(!mqttClient->connected()
+          && !mqttClient->connect(clientId.c_str(), username.c_str(), password.c_str())){
+      if(cnt++ > 3) {
+        Utils::buzzer(2);
+        log("Failed connecting to MQTT broker: ssl://%s:%d, with ClientID: %s Username: %s Password: xxxxxx...Check Credentials. Giving up after %d attempts", 
+          host.c_str(), port, clientId.c_str(), username.c_str(), retry);
+        return false;
+      }
     }
 
     log(PSTR("Successfully connected to MQTT broker: ssl://%s:%d"), host.c_str(), port);
+    mqttClient->setKeepAlive(90);
+    // subscribe to a topic:
+    //log(PSTR("Subscribing to topic: %s"), subtopic);
+    //mqttClient->subscribe(subtopic);
+
     hasSetup = true;
     return true;
 }
@@ -372,22 +396,7 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
   ver = prefs->getString("ver", "3.1.1");
   qos = prefs->getUInt("qos", 0); 
 
-  //provide page for config or reconfig
-  if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0){
-    WiFi.disconnect(); //if any previous connections?
-    delay(100);
-    wifi_ssid.clear();
-    wifi_pwd.clear();
-
-    Serial.printf(PSTR("Creating AP %s"), AP_SSID);
-    WiFi.softAP(AP_SSID, NULL);//AP_PWD
-    
-    IPAddress myIP = WiFi.softAPIP();
-    Serial.printf(PSTR(" IP address: %s\n"), myIP.toString().c_str());
-  }else{
-    connectWiFi();
-    connectMQTT(true);
-  }
+  scan();
 
   //SSE
   events.onConnect([this](AsyncEventSourceClient *client){
@@ -427,21 +436,29 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
   }, NULL, aggregator);
   server.on("/reset", HTTP_POST, [this](AsyncWebServerRequest *request) {
     this->onReset(request);
-  });
+  }, NULL, aggregator);
   server.on("/fwurl", HTTP_POST, [this](AsyncWebServerRequest *request) {
     HTTPClient http;
     
     JsonDocument doc;
     toJson(request, doc);
-
+    // String body;
+    // serializeJson(doc,body);
+    // Serial.printf("%s\n", body.c_str());
     /* const char * url = (const char *)doc["fw_url"];
     if(!strtok((char *)url, ".bin")){
       Serial.printf("URL Error: %s\n", url);
       request->send(400, "application/json", "{\"err\":\"Invalid firmware download url?\"}");
       return;
     } */
-
-    http.begin(this->wifiClient, (const char *)doc["fw_url"]);
+    const char * url = (const char *)doc["fw_url"];
+    if(!url){
+      Serial.println("URL Error: Null");
+      request->send(400, "application/json", "{\"err\":\"Invalid firmware download url?\"}");
+      return;
+    }
+    bool value = http.begin(this->wifiClient, url);
+    Serial.printf("%d", value);
     int httpCode = http.GET();
 
     if (httpCode == HTTP_CODE_OK) {
@@ -476,7 +493,7 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
         request->send(400, "application/json", "{\"err\":\"Firmware update failed...!\"}");
     }
     http.end();
-  });
+  }, NULL, aggregator);
   server.on("/fwfile", HTTP_POST, [this](AsyncWebServerRequest *request) {
       if (request->getResponse()) {
         Serial.println("response already created");
@@ -555,8 +572,25 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
       }
   });
 
+  //provide page for config or reconfig
+  if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0){
+    WiFi.disconnect(); //if any previous connections?
+    delay(100);
+    wifi_ssid.clear();
+    wifi_pwd.clear();
+
+    Serial.printf(PSTR("Creating AP %s"), AP_SSID);
+    WiFi.softAP(AP_SSID, NULL);//AP_PWD
+    
+    IPAddress myIP = WiFi.softAPIP();
+    Serial.printf(PSTR(" IP address: %s\n"), myIP.toString().c_str());
+  }else{
+    connectWiFi();
+  }
+
   server.begin();
-  scan();
+  
+  connectMQTT(true);
 }
 
 }

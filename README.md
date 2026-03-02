@@ -122,9 +122,9 @@ Once the flashing is done, device can be monitored using a serial monitor. Devic
 - screen - MacOS terminal
 - Developers can use e.g. VSCode Serial monitor plugin or Arduino IDE.
 
-![Putty](/img/putty-windows.png)
+![Putty Windows](/img/putty-windows.png)
 
-![Putty](/img/putty-linux.png)
+![Putty Linux](/img/putty-linux.png)
 
 
 

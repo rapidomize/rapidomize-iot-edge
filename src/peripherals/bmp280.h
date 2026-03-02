@@ -43,12 +43,13 @@ class BMP280: public Peripheral{
 
             conf["SDA"] = 4;
             conf["SCL"] = 16;
-            conf["I2C_ADDRESS"] = BMP280_ADDRESS; //BMP280_ADDRESS_ALT
+            char buf[10];
+            sprintf(buf, "%d", BMP280_ADDRESS);
+            conf["I2C_ADDRESS"] = buf; 
+            // conf["I2C_ADDRESS"] = BMP280_ADDRESS; //BMP280_ADDRESS_ALT
 
             configure();
-            sda = (uint8_t)conf["SDA"];
-            scl = (uint8_t)conf["SCL"];
-            i2caddr = (uint8_t)conf["I2C_ADDRESS"];
+            
         }
         char * confpg(){
             char *fr = (char *) malloc(4096);
@@ -57,8 +58,16 @@ class BMP280: public Peripheral{
         }
         void init(JsonDocument *jconf) {
             Peripheral::init(jconf);
-            if(!enabled) return;
+            
+            sda = (uint8_t)conf["SDA"];
+            scl = (uint8_t)conf["SCL"];
+            i2caddr = (uint8_t)std::stoi((const char*)conf["I2C_ADDRESS"], nullptr, 16);
 
+            if(!enabled) {
+                inited = false;
+                return;
+            }
+            
             Wire.begin(sda, scl); //SDA=GPIO4  SCL=GPIO16 
 
             // Initialize BMP280 sensor

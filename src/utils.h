@@ -29,9 +29,9 @@ class Utils{
         static void buzzer(int count){
             for(int i=0; i< count; i++){
                 digitalWrite(BUZZER, HIGH);
-                delay(300); 
+                delay(100); 
                 digitalWrite(BUZZER, LOW) ;
-                delay(300); 
+                delay(200); 
             }
         }
 

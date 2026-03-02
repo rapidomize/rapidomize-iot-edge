@@ -46,7 +46,6 @@ class Relay: public Peripheral{
       //defaults
       conf["GPIO"] = seq == 1? 2 : 15;
       configure();
-      gpio = (uint8_t)conf["GPIO"];
     }
     char * confpg(){
         char *fr = (char *) malloc(4096);
@@ -55,8 +54,12 @@ class Relay: public Peripheral{
     }
     void init(JsonDocument *jconf) {
       Peripheral::init(jconf);
-      if(!enabled) return;
-
+      if(!enabled) {
+          inited = false;
+          return;
+      }
+      gpio = (uint8_t)conf["GPIO"];
+      
       pinMode(gpio, OUTPUT);
 
       inited = true;

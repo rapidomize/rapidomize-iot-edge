@@ -8,7 +8,7 @@
 #include <PubSubClient.h>
 #include <HTTPClient.h>
 
-#include "peripheral.h"
+#include "peripherals/peripheral.h"
 #include "utils.h"
 
 namespace rpz{

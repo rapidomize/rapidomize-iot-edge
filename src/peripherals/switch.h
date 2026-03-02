@@ -61,7 +61,6 @@ class Switch: public Peripheral{
       //defaults
       conf["GPIO"] = seq == 1? 36 : 39;
       configure();
-      gpio = (uint8_t)conf["GPIO"];
     }
 
     char * confpg(){
@@ -72,8 +71,13 @@ class Switch: public Peripheral{
 
     void init(JsonDocument *jconf) {
       Peripheral::init(jconf);
-      if(!enabled) return;
-
+      
+      gpio = (uint8_t)conf["GPIO"];
+      if(!enabled) {
+          inited = false;
+          return;
+      }
+      
       isr = true;
       pinMode(gpio, INPUT_PULLUP);
       // attachInterrupt(digitalPinToInterrupt(gpio), std::bind(&Switch::handleInterrupt, this), FALLING);

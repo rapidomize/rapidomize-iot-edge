@@ -241,7 +241,10 @@ const char *main_tmpl = R"(
                     }, false);
 
                     xhr.addEventListener("error", function(evt) {
-                        console.error('Error:', error);
+                        console.error('Network error occurred');
+                        console.error('Ready state:', xhr.readyState);
+                        console.error('Status:', xhr.status); // Will likely be 0
+                        console.error('Status text:', xhr.statusText);
                         msg.textContent = error;
                         msg.setAttribute('style', 'color: red;');
                         progressBar.style.display = 'none';

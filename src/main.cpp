@@ -17,7 +17,7 @@ void setup() {
 void loop() {
     device.update();
 
-    delay(1000);
+    delay(1000);//1000
 }
 
 

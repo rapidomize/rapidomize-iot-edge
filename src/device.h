@@ -5,13 +5,13 @@
 #include <PubSubClient.h> 
 
 #include "provider.h"
-#include "peripheral.h"
+#include "peripherals/peripheral.h"
 
 
 namespace rpz{
 
 #ifndef RPZ_VERSION
-#define RPZ_VERSION "0.7.5-b27" 
+#define RPZ_VERSION "0.7.5-b28" 
 #endif
 
 enum rpz_ops_t{

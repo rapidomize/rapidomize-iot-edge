@@ -44,21 +44,31 @@ class AHTx0: public Peripheral{
 
             conf["SDA"] = 4;
             conf["SCL"] = 16;
-            conf["I2C_ADDRESS"] =  AHTX0_I2CADDR_DEFAULT;
+            char buf[10];
+            sprintf(buf, "%d", AHTX0_I2CADDR_DEFAULT);
+            conf["I2C_ADDRESS"] = buf; 
+            // conf["I2C_ADDRESS"] =  AHTX0_I2CADDR_DEFAULT;
             configure();
-            sda = (uint8_t)conf["SDA"];
-            scl = (uint8_t)conf["SCL"];
-            i2caddr = (uint8_t)conf["I2C_ADDRESS"];
         }
+        
         char * confpg(){
             char *fr = (char *) malloc(4096);
             sprintf(fr, AHTx0_tmpl, name, enabled?"checked":"", sda, scl, i2caddr);
             return fr;
         }
+
         void init(JsonDocument *jconf) {
             Peripheral::init(jconf);
-            if(!enabled) return;
+            
+            sda = (uint8_t)conf["SDA"];
+            scl = (uint8_t)conf["SCL"];
+            i2caddr = (uint8_t)std::stoi((const char*)conf["I2C_ADDRESS"], nullptr, 16);
 
+            if(!enabled) {
+                inited = false;
+                return;
+            }
+            
             Wire.begin(sda, scl); //SDA=GPIO4  SCL=GPIO16 
             // Initialize sensor
             if (!aht.begin()) {

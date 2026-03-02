@@ -48,7 +48,10 @@ class Peripheral{
 
             conf = *jconf;
             //for now only enable/disable
-            conf["enabled"] = enabled = strcmp((const char*)(*jconf)["enabled"], "on") == 0;
+            if((*jconf)["enabled"])
+                conf["enabled"] = enabled = strcmp((const char*)(*jconf)["enabled"], "on") == 0;
+            else
+                conf["enabled"] = enabled = false;
 
             String sconf;
             serializeJson(conf, sconf);

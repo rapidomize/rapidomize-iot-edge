@@ -5,6 +5,10 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <iomanip>
 
 /* 
     PZEM-01x AC/DC Energy Meter with MAX485 RS485 module
@@ -45,35 +49,44 @@ const uint8_t MODBUS_ERROR_FLAG = 0x80;
 class PZEM01x: public Peripheral{
         
     public: 
+    
 
     PZEM01x(Preferences *prefs, int seq=1):Peripheral(prefs, seq){
         sprintf(name, "PZEM01x_%d", seq);
-
+        
         //defaults
         conf["RX_PIN"] = 35;        // A - RX pin (GPIO35) 
         conf["TX_PIN"] = 32;        // B - TX pin (GPIO32)
         conf["DE_PIN"] = 4;         // DE/RE pin for MAX485
         conf["BAUD_RATE"] = 9600;   // Default baud rate
-        conf["SLAVE_ADDR"] = 0x01;  // Default slave address
-
+        char buf[10];
+        sprintf(buf, "%X", 0x01);
+        conf["SLAVE_ADDR"] = buf;  // Default slave address
+        
         configure();
-
-        rxPin = (uint8_t) conf["RX_PIN"];          
-        txPin = (uint8_t) conf["TX_PIN"];      
-        dePin = (uint8_t) conf["DE_PIN"];    
-        baudRate = (uint32_t) conf["BAUD_RATE"];    
-        rs485addr = (uint8_t) conf["SLAVE_ADDR"];  
     }
 
     char * confpg(){
         char *fr = (char *) malloc(4096*2);
+        Serial.printf("%s %d", (const char*)conf["SLAVE_ADDR"], rs485addr);
         sprintf(fr, PZEM_tmpl, name, enabled?"checked":"", rxPin, txPin, dePin, baudRate, rs485addr);
         return fr;
     }
 
     void init(JsonDocument *jconf) {
         Peripheral::init(jconf);
-        if(!enabled) return;
+        
+        rxPin = (uint8_t) conf["RX_PIN"];          
+        txPin = (uint8_t) conf["TX_PIN"];      
+        dePin = (uint8_t) conf["DE_PIN"];    
+        baudRate = (uint32_t) conf["BAUD_RATE"];   
+        
+        rs485addr = (uint8_t)std::stoi((const char*)conf["SLAVE_ADDR"], nullptr, 16);  
+
+        if(!enabled) {
+            inited = false;
+            return;
+        }
 
         // Parse configuration if provided
         // Format: "slave_addr,de_pin,rx_pin,tx_pin,baud_rate" or use defaults
@@ -81,15 +94,16 @@ class PZEM01x: public Peripheral{
                      rs485addr, rxPin, txPin, baudRate);//DE: %d, dePin
         
         // Configure DE/RE pin
-        pinMode(dePin, OUTPUT);
-        digitalWrite(dePin, LOW); // Start in receive mode
+        /* pinMode(dePin, OUTPUT);
+        digitalWrite(dePin, LOW);  */// Start in receive mode
         
         // Initialize Serial2
-        serialPort = &Serial2;
+        //serialPort = &Serial2;
+        serialPort = new HardwareSerial(2);
         serialPort->begin(baudRate, SERIAL_8N1, rxPin, txPin);
         
         // Test communication by reading voltage
-        delay(1000); // Allow time for initialization
+        delay(200); // Allow time for initialization
         if (!testCommunication()) {
             Serial.printf(PSTR("%s communication failed. Check wiring and power.\n"), name);
             return;
@@ -161,16 +175,16 @@ class PZEM01x: public Peripheral{
         request[7] = (crc >> 8) & 0xFF;
         
         // Set DE/RE pin HIGH for transmit
-        digitalWrite(dePin, HIGH);
-        delayMicroseconds(100);
+        /* digitalWrite(dePin, HIGH);
+        delayMicroseconds(100); */
         
         // Send request
         serialPort->write(request, 8);
         serialPort->flush();
         
         // Set DE/RE pin LOW for receive
-        delayMicroseconds(100);
-        digitalWrite(dePin, LOW);
+        /* delayMicroseconds(100);
+        digitalWrite(dePin, LOW); */
         
         return true;
     }
