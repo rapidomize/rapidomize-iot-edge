@@ -40,9 +40,9 @@ class DS18B20: public Peripheral{
     
     char * read(){
 		loat temp1 = ds1.getTempC();
-        delay(500); 
+        delay(100); 
         float temp2 = ds1.getTempC();
-        delay(500); 
+        delay(100); 
         if(!isnan(temp1) && !isnan(temp2)){
             sprintf(data, DS18B20_MSG, temp1, temp2);
             return data;    

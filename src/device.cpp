@@ -10,7 +10,7 @@
 #include "peripherals/pzem01x.h"
 #include "peripherals/sht3x.h"
 #include "peripherals/relay.h"
-#include "peripherals/switch.h"
+#include "peripherals/din.h"
 #include "peripherals/ahtx0.h"
 #include "peripherals/bmp280.h"
 
@@ -40,8 +40,8 @@ void Device::init(){
     //std::fill(peripherals, peripherals+MAX_PERIPHERALS, static_cast<Peripheral*>(nullptr));
     peripherals[pcnt++] = new PZEM01x(&prefs);
     peripherals[pcnt++] = new Sht3x(&prefs);
-    peripherals[pcnt++] = new Switch(&prefs);
-    peripherals[pcnt++] = new Switch(&prefs,2);
+    peripherals[pcnt++] = new DIN(&prefs);
+    peripherals[pcnt++] = new DIN(&prefs,2);
     peripherals[pcnt++] = new AHTx0(&prefs);
     peripherals[pcnt++] = new BMP280(&prefs); 
     //TODO:
@@ -134,6 +134,7 @@ void Device::send(const char* msg, const char* topic) {
     }
     mqttClient.loop();//additional keep alive
     conprv.log(msg);
+    mqttClient.publish(topic, msg);
 }
 
 void Device::update(){
@@ -183,7 +184,6 @@ void Device::update(){
                 if(peripherals[i]->isr) continue; //skip if isr
 
                 //Serial.printf(PSTR("%s reading data.\n"), peripherals[i]->name);
-                //delay(1000);
                 char *data = peripherals[i]->read();
                 if(data){
                     if(cnt > 0){

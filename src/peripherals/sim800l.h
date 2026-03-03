@@ -26,7 +26,7 @@ class SIM800: public Peripheral{
     char * confpg(){return "";}
     void init(char *conf){
         sim800Serial.begin(9600);
-        delay(1000);
+        delay(200);
 
         pinMode(36, INPUT);
         pinMode(39, INPUT);
@@ -65,6 +65,7 @@ class SIM800: public Peripheral{
                     return;
                 }
             }
+            yield();
         }
         Serial.println("Error: Command not responded as expected.");
     }

@@ -23,7 +23,6 @@ class ConProvider: public Utils{
         void init(PubSubClient *mqttClient, Peripheral **peripherals, Preferences *prefs);
         bool connectMQTT(bool setup=false);
 
-        bool haswifi = false;
         bool hasSetup = false;
         
         //mqtt

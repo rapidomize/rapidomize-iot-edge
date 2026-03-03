@@ -76,6 +76,7 @@ class SIM7600 : public Peripheral{
       while (simSerial.available()){
         response += char(simSerial.read());
         delay(10);
+        yield();
       }
       Serial.print("Received response: ");
       Serial.println(response);

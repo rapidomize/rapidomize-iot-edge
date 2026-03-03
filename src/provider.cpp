@@ -232,9 +232,6 @@ void ConProvider::scan() {
   } else {
     log(PSTR("WiFi scan error %d\n"), ssid_cnt);
   }
-
-  // Wait a bit before scanning again
-  //delay(500);
 }
 
 String wifiStatus(){
@@ -267,6 +264,7 @@ bool ConProvider::connectWiFi(bool setup){
         Utils::buzzer(2);
         retry = 0;
       }
+      yield();
       delay(500);
     }
 
@@ -280,7 +278,6 @@ bool ConProvider::connectWiFi(bool setup){
     prefs->putString("wifi_pwd", wifi_pwd);
     save();
 
-    haswifi = true;
     return true;
 }
 
@@ -291,7 +288,7 @@ bool ConProvider::connectMQTT(bool setup){
       return false;
     } 
 
-    if(!haswifi){
+    if(WiFi.status() != WL_CONNECTED){
       connectWiFi();
     }
     // sslClient.setFingerprint(finger_print);
@@ -308,16 +305,17 @@ bool ConProvider::connectMQTT(bool setup){
 
       int err;
       while(!(err = wifiClient.connect(host.c_str(), port))){
-        log(PSTR("Failed connecting to MQTT broker: ssl://%s:%d, ...retrying"), host.c_str(), port);
+        log(PSTR("Failed connecting to MQTT broker host: %s port: %d, ...retrying"), host.c_str(), port);
         if(WiFi.status() != WL_CONNECTED){
-          log(PSTR("Cannot connect to WiFi, status: %s"), wifiStatus());
+          log(PSTR("WiFi is not connected, status: %s"), wifiStatus());
           Utils::buzzer(2);
           return false;
         }
-        if(cnt++ > 25) {
+        if(cnt++ > 10) {
           Utils::buzzer(1);
           cnt = 0;
         }
+        yield();
         delay(200);
       }
       mqttClient->setClient(wifiClient);
@@ -332,6 +330,7 @@ bool ConProvider::connectMQTT(bool setup){
           host.c_str(), port, clientId.c_str(), username.c_str(), retry);
         return false;
       }
+      yield();
     }
 
     log(PSTR("Successfully connected to MQTT broker: ssl://%s:%d"), host.c_str(), port);
@@ -484,9 +483,10 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
         /* if (Update.canRollBack()) { // Optional: check if rollback is possible
             Serial.println("Can roll back to previous version.");
         } */
-        log("Firmware update successfully! Device will be rebooted shortly to start new firmware");
+       const char *msg = "Firmware update successfully! Device will be rebooted shortly to start new firmware";
+        log(msg);
         request->send(200, "application/json", "{\"err\":\"Firmware update successfully! Device will be rebooted shortly to start new firmware!\"}");
-        delay(500);
+        //delay(500);
         this->onUpgrade(request);
     } else {
         Serial.printf("HTTP Update failed. Error: %d\n", httpCode);
@@ -504,7 +504,7 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
         fwupdated = false;
         log("Firmware image uploaded successfully! Device will be rebooted shortly to start new firmware");
         request->send(200, "application/json", "{\"err\":\"Firmware image uploaded successfully! Device will be rebooted shortly to start new firmware!\"}");
-        delay(500);
+        //delay(500);
         this->onUpgrade(request);
         return;
       }

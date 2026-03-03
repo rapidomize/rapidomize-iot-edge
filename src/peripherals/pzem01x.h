@@ -102,7 +102,7 @@ class PZEM01x: public Peripheral{
         serialPort->begin(baudRate, SERIAL_8N1, rxPin, txPin);
         
         // Test communication by reading voltage
-        delay(200); // Allow time for initialization
+        delay(100); // Allow time for initialization
         if (!testCommunication()) {
             Serial.printf(PSTR("%s communication failed. Check wiring and power.\n"), name);
             return;
@@ -200,6 +200,7 @@ class PZEM01x: public Peripheral{
                     return index;
                 }
             }
+            yield();
         }
         return index; // Return number of bytes read
     }

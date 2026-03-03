@@ -28,10 +28,10 @@ class Utils{
 
         static void buzzer(int count){
             for(int i=0; i< count; i++){
+                if(i > 1) delay(100);
                 digitalWrite(BUZZER, HIGH);
                 delay(100); 
                 digitalWrite(BUZZER, LOW) ;
-                delay(200); 
             }
         }
 

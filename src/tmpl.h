@@ -193,6 +193,7 @@ const char *main_tmpl = R"(
             <label for="tab6" class="tabs__label">Logs</label>
             <div class="tabs__content">
                 <h2>Logs</h2>
+                <p>Last 100 events & messages</p>
                 <div id="evts" class="card column" style="padding-left: 20px;height: 60vh;overflow-y: auto;"></div>
             </div>
             <input type="radio" class="tabs__radio" name="atabs" id="tab7">
