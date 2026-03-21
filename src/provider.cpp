@@ -95,9 +95,9 @@ void ConProvider::homePage(AsyncWebServerRequest *request, int status, const cha
 
   char *page = (char *) malloc(PG_SIZE);
   if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0){
-    sprintf(page, main_tmpl, err?err:"", dash, wifi, "", "");
+    sprintf(page, main_tmpl, err?err:"", dash, wifi, "", "", RPZ_VERSION);
   }else{
-    sprintf(page, main_tmpl, err?err:"", dash, wifi, mqtt, peri);
+    sprintf(page, main_tmpl, err?err:"", dash, wifi, mqtt, peri, RPZ_VERSION);
   }  
 
   request->send(status, "text/html", page);
@@ -379,7 +379,7 @@ bool ConProvider::connectMQTT(bool wsetup){
 
     int retry = 0, cnt = 0;
     if(netClient){
-      if(netClient->connected())  netClient->flush();
+      if(netClient->connected())  netClient->clear();
       if(wsetup && mqttClient->connected()) mqttClient->disconnect();
 
       if(tls && !wastls || !tls && wastls){

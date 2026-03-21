@@ -188,7 +188,7 @@ const char *main_tmpl = R"(
                 <p>Upgrade firmware using a local file or remote url.</p>
                 <!--<form action="/fwurl" method="post" class="card column brd">
                     <h4>Use A Remote URL (OTA)</h4>
-                    <input type="text" name="fw_url" value="https://github.com/rapidomize/rapidomize-sdk-embedded/releases/latest/download/rapidomize-sdk-embedded.bin" class="fx-g">
+                    <input type="text" name="fw_url" value="https://github.com/rapidomize/rapidomize-iot-edge/releases/latest/download/rapidomize-iot-edge-%s.bin" class="fx-g">
                     <input type="submit"  value="Update" class="brdr" style="margin: 20px auto; width: 200px;">
                 </form>-->
                 <form action="/fwfile" method="post" enctype="multipart/form-data" class="card column brd mt-30">

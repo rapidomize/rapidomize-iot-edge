@@ -43,7 +43,8 @@ You can reset the devices to its factory state. It will remove all the configura
 - [ ] Secure Login
 - [ ] Option to disable local AP.
 - [ ] Command control
-- [ ] Automataic OTA updates
+- [ ] Automatic OTA updates
+- [ ] Makefile
 
 
 ## Firmware Installation (Flashing)
@@ -98,7 +99,7 @@ where:
 - `PORT` - is the USB serial port identified above.
 - `FIRMWARE_BINARY` - is the binary file yu have downloaded from the release page e.g. `rapidomize-sdk-embedded-0.7.5-b26.bin`
 
-- You may also use Bootloader & Partions if you have a device that had different Bootloader & Partions previously. Download, additional binary files (bootloader.bin, partitions.bin, & boot_app0.bin) from the releases page.
+- You may also use Bootloader & Partitions if you have a device that had different Bootloader & Partitions previously. Download, additional binary files (bootloader.bin, partitions.bin, & boot_app0.bin) from the releases page.
 
 ```
 esptool -p PORT -b 460800 --chip esp32 write-flash -z --flash-mode dio --flash-freq 40m --flash-size detect 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 rapidomize-sdk-embedded-0.7.5-b27.bin
@@ -121,7 +122,7 @@ If you have a computer with Windows you can use `Flash Download Tool` to flash t
 
 - You may also download Bootloader & Partitions if you have a device that had different Bootloader & Partitions previously.
 
-    ![Firmware, Bootloader & Partions](/img/fw-flash-download-boot.png)
+    ![Firmware, Bootloader & Partitions](/img/fw-flash-download-boot.png)
 
 After successfully writing the firmware, device will reboot and run the new firmware.    
 

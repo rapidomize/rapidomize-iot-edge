@@ -12,7 +12,7 @@
 namespace rpz{
 
 #ifndef RPZ_VERSION
-#define RPZ_VERSION "0.7.5-b31" 
+#define RPZ_VERSION "0.7.5-b32" 
 #endif
 
 enum rpz_ops_t{
