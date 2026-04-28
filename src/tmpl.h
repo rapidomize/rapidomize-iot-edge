@@ -41,7 +41,7 @@ const char *main_tmpl = R"(
                 position: absolute;
             }
             .card{
-                border: 1px solid gray; 
+                border: 1px solid #d1d1d1; 
                 border-radius: 6px;
                 padding: 10px;
                 min-width: fit-content;
@@ -71,6 +71,7 @@ const char *main_tmpl = R"(
                 display: flex;
                 flex-wrap: wrap;
                 font-family: sans-serif;
+                margin-bottom: 300px;
             }
             .tabs__label {
                 padding: 10px 16px;
@@ -97,7 +98,7 @@ const char *main_tmpl = R"(
             input, select{
                 padding: 4px 12px;
                 font-size: 14px;
-                border: 1px solid gray;
+                border: 1px solid #d1d1d1;
                 border-radius: 6px;
                 transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
                 min-width: fit-content;
@@ -165,55 +166,41 @@ const char *main_tmpl = R"(
                 font-size: 20px; 
                 background-color: #fff;
             }
+            .footer {
+                position: fixed;
+                left: 0;
+                bottom: 0;
+                width: 100%%;
+                background: rgb(234 234 234);
+                text-align: center;
+                box-shadow: 0 1px 6px rgba(57,73,76,0.35);
+                -webkit-box-shadow: 0 1px 6px rgba(57,73,76,0.35);
+            }
         </style>
     </head>
     <body class="container column">
         <div class="row" style="align-items: end; margin-bottom: 20px;">
-            <img class="img-fluid" src="https://rapidomize.io/img/logo-text.svg" alt="Rapidomize | Low-Code Service Development Platform" loading="lazy" 
+            <img class="img-fluid" src="https://rapidomize.io/img/logo-text.svg" alt="Rapidomize | Low-Code Service Creation Platform" loading="lazy" 
                 style="height:auto;max-width: 100%%; max-height: 56px;margin-right: 30px;">
             <h1>IoT Edge</h1>
         </div>
-        <!-- messages (if any) -->
-        <div  id="msg">%s</div>
+        <div class="row">
+            <div id="msg" class="fx-g">%s</div>
+            <form id="logout" action="/logout" method="post">
+                <input type="submit" value='Logout' style="width: 100px; height: 25px;display:%s">
+            </form>
+        </div>
         <progress id="progBar" value="0" max="100" style="display: none; background-color: #37a000;"></progress>
         <div class="tabs">
             %s
             %s
             %s
             %s
-            <input type="radio" class="tabs__radio" name="atabs" id="tab5">
-            <label for="tab5" class="tabs__label">Firmware</label>
-            <div class="tabs__content">
-                <h2>Firmware Upgrade</h2>
-                <p>Upgrade firmware using a local file or remote url.</p>
-                <!--<form action="/fwurl" method="post" class="card column brd">
-                    <h4>Use A Remote URL (OTA)</h4>
-                    <input type="text" name="fw_url" value="https://github.com/rapidomize/rapidomize-iot-edge/releases/latest/download/rapidomize-iot-edge-%s.bin" class="fx-g">
-                    <input type="submit"  value="Update" class="brdr" style="margin: 20px auto; width: 200px;">
-                </form>-->
-                <form action="/fwfile" method="post" enctype="multipart/form-data" class="card column brd mt-30">
-                    <h4>Use A Local File</h4>
-                    <input type="file" name="fw_file">
-                    <input type="submit"  value="Update" class="brdr" style="margin: 20px auto; width: 200px;">
-                </form>
-            </div>
-            <input type="radio" class="tabs__radio" name="atabs" id="tab6">
-            <label for="tab6" class="tabs__label">Logs</label>
-            <div class="tabs__content">
-                <h2>Logs</h2>
-                <p>Last 100 events & messages</p>
-                <div id="evts" class="card column" style="padding-left: 20px;height: 60vh;overflow-y: auto;"></div>
-            </div>
-            <input type="radio" class="tabs__radio" name="atabs" id="tab7">
-            <label for="tab7" class="tabs__label">Reset</label>
-            <div class="tabs__content">
-                <h2>Reset</h2>
-                <p>Reset the IoT Edge to it's factory settings</p>
-                <form id="reset" action="/reset" method="post" class="column mt-30">
-                    <input type="submit" value='Factory Reset' class="brdr" style="margin: 20px auto; width: 200px;">
-                </form>
-            </div>
+            %s
         </div>
+        <div class="footer">
+            <p>Copyright &copy; Rapidomize LLC. All Rights Reserved.</p>
+        </div>   
         <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/js/all.min.js"></script>
         <script>
             const forms = document.getElementsByTagName('form');
@@ -237,14 +224,21 @@ const char *main_tmpl = R"(
                         }
                         const data = xhr.response;
                         //const data = JSON.parse(xhr.response);
-                        if (xhr.status != 200) {
-                            console.log('Failed:', data);
-                            msg.textContent = data['err']?data['err']:'Error';
-                            msg.setAttribute('style', 'color: red;');
-                        }else{
-                            console.log('Success:', data);
-                            msg.textContent = data['err']?data['err']:'Success';
-                            msg.setAttribute('style', 'color: green;');
+                        switch(xhr.status){
+                            case 200: 
+                                if(data['urlp']){
+                                    window.location.href = data['urlp'];
+                                }else if(data['url']){
+                                    window.location = data['url'];
+                                }
+                                console.log('Success:', data);
+                                msg.textContent = data['err']?data['err']:'Success';
+                                msg.setAttribute('style', 'color: green;');
+                                break;
+                            default:
+                                console.log('Failed:', data);
+                                msg.textContent = data['err']?data['err']:'Error';
+                                msg.setAttribute('style', 'color: red;');
                         }
                         progressBar.style.display = 'none';
                         const btn = forms[i].querySelector('.sv-btn');
@@ -295,7 +289,6 @@ const char *main_tmpl = R"(
                     });                    
                 }
             }
-
             const evtSource = new EventSource("/evts");
             evtSource.onmessage = (event) => {
                 const eventList = document.getElementById("evts");
@@ -311,6 +304,72 @@ const char *main_tmpl = R"(
         </script>
     </body>
 </html>
+)";
+
+const char *tabs_tmpl = R"(
+<input type="radio" class="tabs__radio" name="atabs" id="tab5">
+<label for="tab5" class="tabs__label">Firmware</label>
+<div class="tabs__content">
+    <h2>Firmware Upgrade</h2>
+    <p>Upgrade firmware using a local file or remote url.</p>
+    <!--<form action="/fwurl" method="post" class="card column brd">
+        <h4>Use A Remote URL (OTA)</h4>
+        <input type="text" name="fw_url" value="https://github.com/rapidomize/rapidomize-iot-edge/releases/latest/download/rapidomize-iot-edge-%s.bin" class="fx-g" required>
+        <input type="submit"  value="Update" class="brdr" style="margin: 20px auto; width: 200px;">
+    </form>-->
+    <form action="/fwfile" method="post" enctype="multipart/form-data" class="card column brd mt-30">
+        <h4>Use A Local File</h4>
+        <input type="file" name="fw_file" required>
+        <input type="submit"  value="Update" class="brdr" style="margin: 20px auto; width: 200px;">
+    </form>
+</div>
+<input type="radio" class="tabs__radio" name="atabs" id="tab6">
+<label for="tab6" class="tabs__label">Logs</label>
+<div class="tabs__content">
+    <h2>Logs</h2>
+    <p>Last 100 events & messages</p>
+    <div id="evts" class="card column" style="padding-left: 20px;height: 60vh;overflow-y: auto;"></div>
+</div>
+<input type="radio" class="tabs__radio" name="atabs" id="tab7">
+<label for="tab7" class="tabs__label">Other</label>
+<div class="tabs__content">
+    <h2>Other Settings</h2>
+    <form id="prefs" action="/prefs" method="post" class="column card">
+        <div class="column">
+            <!--<h4>Credentials</h4>-->
+            <table>
+                <tr><td style="width: 200px;">New Password</td><td class="fx"><input type="password" name="pwd" minlength="8" style="flex-grow: 1"></td></tr>
+                <tr><td>Confirm Password</td><td class="fx"><input type="password" name="cpwd" minlength="8" style="flex-grow: 1"></td></tr>
+            </table>
+        </div>
+        <table class="mt-30">
+            <tr><td style="width: 200px;">Access Point (iot_edge)</td><td><input type="checkbox" name="ap" %s></td></tr>
+            <tr><td style="width: 200px;">WiFi</td><td><input type="checkbox" name="wifi" %s %s></td></tr>
+        </table>
+        <input type="submit" value='Save Settings' class="brdr" style="margin: 20px auto; width: 200px;">
+    </form>
+    <form id="reset" action="/reset" method="post" class="column card mt-30" style="color: red;">
+        <p>Reset the IoT Edge to it's factory settings</p>
+        <input type="submit" value='Factory Reset' class="brdr" style="margin: 20px auto; width: 200px;color: red;">
+    </form>
+</div>
+)";
+
+
+const char *auth_tmpl = R"(
+<input type="radio" class="tabs__radio" name="atabs" id="tab0" checked>
+<label for="tab0" class="tabs__label">Auth</label>
+<div class="tabs__content">
+    <form  action="/auth" method="post" class="column"  class="column">
+        <div class="column card mt-30" style="grid-gap: 5px;">
+            <table style="margin: auto;width: 350px;">
+                <tr><td>Username</td><td class="fx ml-20"><input type="text" name="usr"  style="flex-grow: 1" required></td></tr>
+                <tr><td>Password</td><td class="fx ml-20"><input type="password" name="pwd"  style="flex-grow: 1" required></td></tr>
+            </table>
+        </div>
+        <input type="submit" value='Login' class="brdr" style="margin: 20px auto; width: 200px;">
+    </form>
+</div>
 )";
 
 const char *dash_tmpl = R"(
@@ -330,10 +389,6 @@ const char *dash_tmpl = R"(
 </div>
 )";
 
-const char *dash_fr_tmpl = R"(
-<div class="card">%s</div>
-)";
-
 const char *wifi_tmpl = R"(
 <input type="radio" class="tabs__radio" name="atabs" id="tab2">
 <label for="tab2" class="tabs__label">WiFi</label>
@@ -347,8 +402,8 @@ const char *wifi_tmpl = R"(
                 %s
             </div>
         </label>
-        <label style="margin-top: 10px;">WiFi password:
-            <input type="password" name="pwd">
+        <label style="margin-top: 10px;">WiFi Password:
+            <input type="password" name="pwd" required>
         </label>
         <input type="submit"  value="Connect" class="brdr" style="margin: 20px auto; width: 200px;">
     </form>
@@ -364,13 +419,13 @@ const char *mqtt_tmpl = R"(
         <p>Specify MQTT Broker details.</p>
         <div class="column" style="grid-gap: 5px;">
             <table class="card">
-                <tr><td>Host</td><td class="fx"><input type="text" name="host" value="%s" class="fx-g"></td></tr>
-                <tr><td>Port</td><td><input type="number" name="port" value="%d"></td></tr>
+                <tr><td>Host</td><td class="fx"><input type="text" name="host" value="%s" class="fx-g" required></td></tr>
+                <tr><td>Port</td><td><input type="number" name="port" value="%d" required></td></tr>
                 <tr><td>TLS/SSL</td><td><input type="checkbox" name="tls" %s></td></tr>
-                <tr><td>Client ID</td><td class="fx"><input type="text" name="clientId" value="%s"  class="fx-g"></td></tr>
+                <tr><td>Client ID</td><td class="fx"><input type="text" name="clientId" value="%s"  class="fx-g" required></td></tr>
                 <tr><td>Username</td><td class="fx"><input type="text" name="username" value="%s"  class="fx-g"></td></tr>
                 <tr><td>Password</td><td class="fx"><input type="password" name="password" value="%s" class="fx-g"></td></tr>
-                <tr><td style="width: 150px;">Publishing Topic</td><td class="fx"><input type="text" name="topic"  value="%s" class="fx-g"></td></tr>
+                <tr><td style="width: 150px;">Publishing Topic</td><td class="fx"><input type="text" name="topic"  value="%s" class="fx-g" required></td></tr>
                 <tr><td>Version</td><td>
                     <select name="ver" value="%s">
                         <option value="3.1.1">3.1.1</option>
@@ -405,15 +460,6 @@ const char *peri_tmpl = R"(
 )";
 
 const char *ssid_tmpl = R"(<div><input type="radio" name="ssid" value="%s" %s> <label>%s</label></div>)";
-const char *success_pg = R"(
-<!DOCTYPE html><html lang='en'>
-<head>
-    <meta name='viewport' content='width=device-width'>
-    <title>Rapidomize IoT Edge</title>
-</head>
-<body>Thanks</body></html>
-)";    
-
 
 } // namespace rpz
 

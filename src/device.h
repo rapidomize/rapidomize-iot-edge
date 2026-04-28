@@ -14,6 +14,9 @@ namespace rpz{
 #ifndef RPZ_VERSION
 #define RPZ_VERSION "0.7.5-b32" 
 #endif
+#ifndef DEVICE_MODEL
+#define DEVICE_MODEL "rpz-d2x2t2ux-we" 
+#endif
 
 enum rpz_ops_t{
 

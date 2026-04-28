@@ -29,7 +29,7 @@ You can first configure pins and values, then setup MQTT configurations to recei
 
 ### Firmware update - OTA & File
 To update firmware using OTA (over the air) get the URL of the release binary, then enter it in the URL field in the OTA update section, click the update button and it will update the firmware and show you the progress, and once it is fully updated it will automatically reboot. 
-To update firmware using a local file, first download the latest release from [the firmware updates page](https://github.com/rapidomize/rapidomize-sdk-embedded/), and upload the file using the file tab. Click update. Once it is fully updated it will automatically reboot and start with the new firmware.
+To update firmware using a local file, first download the latest release from [the firmware updates page](https://github.com/rapidomize/rapidomize-iot-edge/), and upload the file using the file tab. Click update. Once it is fully updated it will automatically reboot and start with the new firmware.
 
 <img src="/img/fw.png" width="50%" alt="Firmware update"/>
 
@@ -46,8 +46,6 @@ You can reset the devices to its factory state. It will remove all the configura
 
 # TODO
 - [ ] Additional peripherals (e.g. Ethernet, Relays, GSM, IR, ...etc)
-- [ ] Secure Login
-- [ ] Option to disable local AP.
 - [ ] Command control
 - [ ] Automatic OTA updates
 - [ ] Makefile
@@ -57,7 +55,7 @@ You can reset the devices to its factory state. It will remove all the configura
 Firmware can be first time installed (Flashed) using following tools. Once the firmware is installed into your device, further updates can be installed using the [Firmware update - OTA & File feature](#firmware-update---ota--file). It allows you to install firmware from the release page using the firmware release URL or download a particular release to your local computer and install using the downloaded local firmware binary file.
 
 ### First Time installations
-Before you start, download the latest release of the [rapidomize-sdk-embedded firmware](https://github.com/rapidomize/rapidomize-sdk-embedded/releases).
+Before you start, download the latest release of the [rapidomize-iot-edge firmware](https://github.com/rapidomize/rapidomize-iot-edge/releases).
 - Connect your device using a USB-C cable to your computer. 
 - In case of, [IoT Edge Controller: rpz-d2x2t2ux-we](https://rapidomize.com/docs/solutions/iot/device/rpz-d2x2t2ux-we/), it needs to be powered up using the 12V power adopter. 
 - You may need USB serial adapter drivers if it's not already installed in your computer: Install CH341SER USB driver. 
@@ -103,21 +101,36 @@ esptool -p PORT -b 460800 --chip esp32 write-flash -z --flash-mode dio --flash-f
 ```
 where: 
 - `PORT` - is the USB serial port identified above.
-- `FIRMWARE_BINARY` - is the binary file yu have downloaded from the release page e.g. `rapidomize-sdk-embedded-0.7.5-b26.bin`
+- `FIRMWARE_BINARY` - is the binary file yu have downloaded from the release page e.g. `rapidomize-iot-edge-0.7.5-b32.bin`
 
-- You may also use Bootloader & Partitions if you have a device that had different Bootloader & Partitions previously. Download, additional binary files (bootloader.bin, partitions.bin, & boot_app0.bin) from the releases page.
+You may also use Bootloader & Partitions if you have a device that had different Bootloader & Partitions previously. Download, additional binary files (bootloader.bin, partitions.bin, & boot_app0.bin) from the releases page.
+
+|  Offset   | File
+|-----------|---------------    
+|  0x1000   | bootloader.bin
+|  0x8000   | partitions.bin
+|  0xE000   | boot_app0.bin
+|  0x10000  | rapidomize-iot-edge-x.x.x-xxx.bin
+
 
 ```
-esptool -p PORT -b 460800 --chip esp32 write-flash -z --flash-mode dio --flash-freq 40m --flash-size detect 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 rapidomize-sdk-embedded-0.7.5-b27.bin
+esptool -p PORT -b 460800 --chip esp32 write-flash -z --flash-mode dio --flash-freq 40m --flash-size detect 0x1000 bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 rapidomize-iot-edge-x.x.x-xxx.bin
 ```
 
 After successfully executing the command, esptool will hard reset the device, causing it to reboot and run the new firmware.
 
 #### Factory Reset using Esptool
-Run following command to reset the device to it's factory state.
+Run following command to reset the device settings.
 ```
-esptool --chip esp32 --port PORT erase_region 0x9000 0x6000
+esptool --chip esp32 -p PORT erase_region 0x9000 0x6000
 ```
+
+- Fully Erase the Flash
+Run following command to fully erase the flash memory and restore it to the factory state.
+```
+esptool --chip esp32 -p PORT erase_flash
+```
+
 
 ### Flashing with Flash Download Tool
 If you have a computer with Windows you can use `Flash Download Tool` to flash the firmware.
@@ -138,10 +151,10 @@ For more info on download tool, refer to [Flash Download Tool User Guide](https:
 ## Monitoring
 Once the flashing is done, device can be monitored using a serial monitor. Device events can also be monitored using the webUI `Logs` tab. Use one of the following tools to monitor you device via serial port.
 
+- Developers can use e.g. VSCode Serial monitor plugin or Arduino IDE.
 - [Putty](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html) - serial monitor for Windows, Linux & MacOS
 - Minicom - Linux 
 - screen - MacOS terminal
-- Developers can use e.g. VSCode Serial monitor plugin or Arduino IDE.
 
 ![Putty Windows](/img/putty-windows.png)
 
@@ -158,6 +171,8 @@ Once the flashing is done, device can be monitored using a serial monitor. Devic
 
 ### Step 2: Configure your WiFi credentials
 - Open a web browser and go to http://192.168.4.1. You will see the IoT Edge web UI.
+- Login to the IoT Edge web UI using default credentials - Username: `admin` and Password: `changeit`. 
+- Once you successfully logged in, change the password as soon as possible by navigating to the `Others` settings tab. Securely note down the new password.
 - From WiFi settings tab, select your WiFi network from the list of SSID shown and enter your WiFi password and click `Connect` button.
 - Make sure you have your WiFi network setup with DHCP, so that device will be able to connect and obtain a new IP address.
 - If successfully connected, it will show 'Success' message just above the tabs

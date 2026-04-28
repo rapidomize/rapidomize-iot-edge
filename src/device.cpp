@@ -10,8 +10,8 @@
 #include "peripherals/peripheral.h"
 #include "peripherals/pzem01x.h"
 #include "peripherals/sht3x.h"
-#include "peripherals/relay.h"
 #include "peripherals/din.h"
+// #include "peripherals/relay.h"
 #include "peripherals/ahtx0.h"
 #include "peripherals/bmp280.h"
 
@@ -43,7 +43,7 @@ void Device::init(){
     peripherals[pcnt++] = new DIN(&prefs, &conprv);
     peripherals[pcnt++] = new DIN(&prefs, &conprv, 2);
     peripherals[pcnt++] = new AHTx0(&prefs, &conprv);
-    peripherals[pcnt++] = new BMP280(&prefs, &conprv); 
+    peripherals[pcnt++] = new BMP280(&prefs, &conprv);  
     //TODO:
     /* peripherals[senscnt++] = new Relay(&prefs);
     peripherals[senscnt++] = new Relay(&prefs,2); */

@@ -1,21 +1,37 @@
 #include <Arduino.h>
 #include <Update.h>
+#include <NetworkClientSecure.h>
 // #include <ESPmDNS.h>
+// #include <LittleFS.h>
+
+//ETH_PHY_LAN8720
+#define ETH_PHY_TYPE        ETH_PHY_LAN8720
+#define ETH_PHY_ADDR         0
+#define ETH_PHY_MDC         23
+#define ETH_PHY_MDIO        18
+#define ETH_PHY_POWER       -1
+#define ETH_CLK_MODE        ETH_CLOCK_GPIO17_OUT
+
+//above #definitions will be used by the following header
+#include <ETH.h>
 
 #include <cstring>
-
-#include <NetworkClientSecure.h>
-// #include <NetClientSecure.h>
 
 #include "provider.h"
 #include "device.h"
 #include "utils.h"
 #include "tmpl.h"
+// #include "sha1.h"
+#include "sha256.h"
+
 
 namespace rpz{
 
 const char * AP_SSID="iot_edge";
 const char *RPZ_PL = "ics.rapidomize.com";
+
+const char *USR="admin";
+const char *PWD="changeit";
 
 
 //ISRG Root X1
@@ -76,9 +92,64 @@ v3hMMocP6fo=
 -----END CERTIFICATE-----
 )";
 
+//Sectigo Public Server Authentication Root E46
+const char *GH_CERT = R"(
+-----BEGIN CERTIFICATE-----
+MIICOjCCAcGgAwIBAgIQQvLM2htpN0RfFf51KBC49DAKBggqhkjOPQQDAzBfMQswCQYDVQQGEwJH
+QjEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMTYwNAYDVQQDEy1TZWN0aWdvIFB1YmxpYyBTZXJ2
+ZXIgQXV0aGVudGljYXRpb24gUm9vdCBFNDYwHhcNMjEwMzIyMDAwMDAwWhcNNDYwMzIxMjM1OTU5
+WjBfMQswCQYDVQQGEwJHQjEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMTYwNAYDVQQDEy1TZWN0
+aWdvIFB1YmxpYyBTZXJ2ZXIgQXV0aGVudGljYXRpb24gUm9vdCBFNDYwdjAQBgcqhkjOPQIBBgUr
+gQQAIgNiAAR2+pmpbiDt+dd34wc7qNs9Xzjoq1WmVk/WSOrsfy2qw7LFeeyZYX8QeccCWvkEN/U0
+NSt3zn8gj1KjAIns1aeibVvjS5KToID1AZTc8GgHHs3u/iVStSBDHBv+6xnOQ6OjQjBAMB0GA1Ud
+DgQWBBTRItpMWfFLXyY4qp3W7usNw/upYTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB
+/zAKBggqhkjOPQQDAwNnADBkAjAn7qRaqCG76UeXlImldCBteU/IvZNeWBj7LRoAasm4PdCkT0RH
+lAFWovgzJQxC36oCMB3q4S6ILuH5px0CMk7yn2xVdOOurvulGu7t0vzCAxHrRVxgED1cf5kDW21U
+SAGKcw==
+-----END CERTIFICATE-----
+)";
 
-static const int PG_SIZE = 1024*32; //is this too large?
-static const int TAB_SIZE = 1024*4;
+
+static const int PG_SIZE  = 1024 * 32; //is this too large?
+static const int TAB_SIZE = 1024 * 4;
+
+// SHA1 hasher;
+SHA256 hasher;
+
+bool authst = false;
+hw_timer_t *timer;
+
+//TODO: Semaphore/mux
+//https://docs.espressif.com/projects/arduino-esp32/en/latest/api/timer.html
+void IRAM_ATTR onTicks() {
+  authst = false;
+}
+
+void disableTimer(bool rm){
+  if(timer){
+    if(!rm){
+      timerStop(timer);
+      return;
+    }
+    timerDetachInterrupt(timer);
+    timerEnd(timer);
+  }
+  timer = nullptr;
+}
+
+void setTimer(){
+  if(timer){
+    timerRestart(timer);
+    return;
+  }
+  //1 MHz (1 tick = 1 microsecond)
+  timer = timerBegin(1000000L); 
+  timerAttachInterrupt(timer, &onTicks);
+  
+  //trigger every 30 min; 1 second = 1,000,000 ticks
+  timerAlarm(timer, 30 * 60 * 1000000L, true, 0);
+}
+
 
 /* 
   Connect to the WiFi SSID - 'iot_edge'
@@ -87,32 +158,49 @@ static const int TAB_SIZE = 1024*4;
 void ConProvider::homePage(AsyncWebServerRequest *request, int status, const char *err) {
   Serial.printf(PSTR("Page Loading - %d - %s\n"), status, err?err:"");
   //yield();
-  
-  char *dash = getDash();
-  char *wifi = getWifi();
-  char *mqtt = getMqtt();
-  char *peri = getPeri();
 
   char *page = (char *) malloc(PG_SIZE);
-  if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0){
-    sprintf(page, main_tmpl, err?err:"", dash, wifi, "", "", RPZ_VERSION);
+  if(!page){
+    perror("Unable to allocate memory!");
+    request->send(400, "application/json", "{\"err\":\"Unable to allocate memory!\"}");
+    return;
+  }
+
+  if(!authst){
+    Serial.printf(PSTR("Auth Page Loading - %d - %s\n"), status, err?err:"");
+    sprintf(page, main_tmpl, err?err:"", "none", auth_tmpl, "", "", "", ""); 
+    request->send(status, "text/html", page);
   }else{
-    sprintf(page, main_tmpl, err?err:"", dash, wifi, mqtt, peri, RPZ_VERSION);
-  }  
+    char *dash = getDash();
+    char *wifi = getWifi();
+    char *mqtt = getMqtt();
+    char *peri = getPeri();
 
-  request->send(status, "text/html", page);
+    char *fr = (char *) malloc(TAB_SIZE);
+    sprintf(fr, tabs_tmpl, RPZ_VERSION, prefs->getBool("ap", true)?"checked":"", prefs->getBool("wifi", true)?"checked":"", !ethSt?"disabled":"");
+    //prefs->isKey("ap") != PT_INVALID
+    
+    if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0){
+      sprintf(page, main_tmpl, err?err:"", "block", dash, wifi, "", "", fr);
+    }else{
+      sprintf(page, main_tmpl, err?err:"", "block", dash, wifi, mqtt, peri, fr);
+    }  
 
-  free(dash);
-  free(wifi);
-  free(mqtt);
-  free(peri);
+    request->send(status, "text/html", page);
+
+    free(fr);
+    free(dash);
+    free(wifi);
+    free(mqtt);
+    free(peri);
+  }
   free(page);
 }
 
 //page submitted
 char *ConProvider::getDash(){
   char *fr = (char *) malloc(TAB_SIZE);
-  sprintf(fr, dash_tmpl, "rpz-d2x2t2ux-we", RPZ_VERSION, ESP.getCpuFreqMHz(), ESP.getSketchSize()/1024, WiFi.localIP().toString().c_str(), "");
+  sprintf(fr, dash_tmpl, DEVICE_MODEL, RPZ_VERSION, ESP.getCpuFreqMHz(), ESP.getSketchSize()/1024, WiFi.localIP().toString().c_str(), "");
   return fr;
 }
 
@@ -121,7 +209,8 @@ char * ConProvider::getWifi(){
   char *fr = (char *) malloc(TAB_SIZE);
   for(int i=0;i<ssid_cnt && i < 20; i++){
     Serial.println(ssids[i].c_str());
-    sprintf(fr, ssid_tmpl, ssids[i].c_str(), (wifi_ssid.equals(ssids[i]))?"checked":"", ssids[i].c_str());
+    sprintf(fr, "<div><input type=\"radio\" name=\"ssid\" value=\"%s\" %s> <label>%s</label></div>", 
+              ssids[i].c_str(), (wifi_ssid.equals(ssids[i]))?"checked":"", ssids[i].c_str());
     ssidlst += fr;
   }
 
@@ -150,6 +239,55 @@ char *ConProvider::getPeri(){
   return fr;
 }
 
+/*char *ConProvider::getTmpl(String& name){
+   File file = LittleFS.open(name, "r");
+  if (file) {
+      size_t size = file.size();
+      char* buf = (char*)malloc(size + 1);
+      
+      if (buf) {
+          file.readBytes(buf, size);
+          buf[size] = '\0';
+      }else buf[0] = '\0';
+      file.close();
+      return buf;
+  }else{
+    log("Invalid template file %s.html", name.c_str());
+  }
+  return nullptr; 
+}*/
+
+bool ConProvider::checkAuth(AsyncWebServerRequest *request){
+  if(!authst){
+    request->send(200, "application/json", "{\"urlp\":\"/\"}");
+    return false;
+  }
+  return true;
+}
+void ConProvider::onAuth(AsyncWebServerRequest *request){
+  yield();
+  
+  JsonDocument doc;
+  toJson(request, doc);
+
+  String usr = (const char *)doc["usr"];
+  String pwd = (const char *)doc["pwd"];
+  pwd = hasher.sha256(pwd.c_str());
+
+  String usrp = prefs->getString("usr", USR);
+  String pwdp = prefs->getString("pwd", hasher.sha256(PWD));
+
+  log("login...%s %s %s %s", usr, usrp, pwd, pwdp);
+  if(usr == usrp && pwd == pwdp){//usr.length() != 0 && pwd.length() != 0 &&
+    authst = true;
+    request->send(200, "application/json", "{\"urlp\":\"/\"}");
+
+    setTimer();
+    return;
+  }
+  request->send(400, "application/json", "{\"err\":\"Invalid Credentials!\"}");
+}
+
 void ConProvider::onWifi(AsyncWebServerRequest *request){
   yield();
   log("Setting up WiFi...");
@@ -164,7 +302,17 @@ void ConProvider::onWifi(AsyncWebServerRequest *request){
 
   if(wifi_ssid.length() != 0 && wifi_pwd.length() != 0){
     if(connectWiFi(true)){
-      request->send(200, "application/json", "{}");
+      char msg[128];
+      sprintf(msg, "{\"ip\":\"%s\"}", WiFi.localIP().toString().c_str());
+      request->send(200, "application/json", msg);
+
+      /* delay(200);
+      if(WiFi.getMode() == WIFI_AP_STA){// && !prefs->getBool("ap", true)
+        //WiFi.disconnect(true);    //disconnect from wifi AP to set wifi connection in STA
+        WiFi.mode(WIFI_STA);    
+        //WiFi.reconnect();
+        prefs->putBool("ap", false);
+      } */
       return;
     }     
   }
@@ -234,6 +382,47 @@ void ConProvider::restart(AsyncWebServerRequest *request){
   prefs->end();
   delay(500);
   ESP.restart();
+}
+
+void ConProvider::onPrefs(AsyncWebServerRequest *request){
+  yield();
+  JsonDocument doc;
+  toJson(request, doc);
+
+  String pwd = (const char *)doc["pwd"];
+  String cpwd = (const char *)doc["cpwd"];
+  String ap = (const char *)doc["ap"];
+  String wifip = (const char *)doc["wifi"];
+
+  if(pwd.length() != 0){
+    /* if(pwd.length() < 8){
+      request->send(400, "application/json", "{\"err\":\"Password is too small?\"}");
+      return;
+    } */
+    if(pwd != PWD && pwd == cpwd){
+      prefs->putString("pwd", hasher.sha256(pwd.c_str()));
+    } else {
+      request->send(400, "application/json", "{\"err\":\"Password does not match?\"}");
+      return;
+    }
+  }
+
+  bool bap = ap && ap == "on";
+  prefs->putBool("ap", bap);
+  if(!bap){
+    WiFi.mode(WIFI_STA);   
+  }else{
+    WiFi.mode(WIFI_AP_STA);   
+  }
+
+  bool bwifi = wifip && wifip == "on";
+  prefs->putBool("wifi", bwifi);
+  if(ethSt && !bwifi){
+    WiFi.mode(WIFI_OFF);   
+  }
+  
+  request->send(200, "application/json", "{}");
+  save();
 }
 
 void ConProvider::onReset(AsyncWebServerRequest *request){
@@ -307,51 +496,62 @@ void ConProvider::scan() {
 
 const char * ConProvider::wifiStatus(){
     switch (WiFi.status()){
-      case WL_NO_SSID_AVAIL: status =  "WL_NO_SSID_AVAIL"; break;
-      case WL_CONNECT_FAILED:  status = "WL_CONNECT_FAILED. Check SSID/Password!"; break;
-      case WL_CONNECTION_LOST:  status = "WL_CONNECTION_LOST"; break;
-      case WL_DISCONNECTED:  status = "WL_DISCONNECTED";  break;
+      case WL_NO_SSID_AVAIL: wifiSt =  "WL_NO_SSID_AVAIL"; break;
+      case WL_CONNECT_FAILED:  wifiSt = "WL_CONNECT_FAILED. Check SSID/Password!"; break;
+      case WL_CONNECTION_LOST:  wifiSt = "WL_CONNECTION_LOST"; break;
+      case WL_DISCONNECTED:  wifiSt = "WL_DISCONNECTED";  break;
       default:
         break;
     }
-    return status.c_str();
+    return wifiSt.c_str();
 }
 
 bool ConProvider::connectWiFi(bool wsetup){
-    if(WiFi.isConnected() && WiFi.SSID() == wifi_ssid ||
-        wifi_ssid.length() == 0 || wifi_pwd.length() == 0) return false;
-    
-    log(PSTR("Connecting to WiFi ssid: %s, pwd: xxxxxx"), wifi_ssid.c_str());//, wifi_pwd.c_str());
+  log("Setting up WiFi...3");
+  if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0) return false;
 
-    WiFi.disconnect(true);  //disconnect from wifi AP to set wifi connection in STA
-    //WiFi.mode(WIFI_AP_STA);    //init wifi mode
-    WiFi.begin(wifi_ssid, wifi_pwd);
-    int retry = 0;
-    // Wait for connection
-    while (WiFi.status() != WL_CONNECTED) {
-      log(PSTR("Cannot connect to WiFi, status: %s"), wifiStatus());
-
-      if(retry++ > 10) {
-        Utils::buzzer(3);
-        retry = 0;
-        //return immediately
-        if(wsetup) return false;
-      }
-      yield();
-      delay(500);
-    }
-
-    log(PSTR("Connected to WiFi SSID %s IP address: %s"), wifi_ssid.c_str(), WiFi.localIP().toString().c_str());
-
-    /* if (MDNS.begin("rapidomize")) {
-      Serial.println(F("MDNS responder started"));
-    } */
-
-    prefs->putString("wifi_ssid", wifi_ssid);
-    prefs->putString("wifi_pwd", wifi_pwd);
-    save();
-
+  if(WiFi.isConnected() && WiFi.SSID() == wifi_ssid){
+    log(PSTR("WiFi is already connected to ssid: %s, pwd: xxxxxx"), wifi_ssid.c_str());
     return true;
+  }
+    
+  log(PSTR("Connecting to WiFi ssid: %s, pwd: xxxxxx"), wifi_ssid.c_str());//, wifi_pwd.c_str());
+
+  WiFi.persistent(true);
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(wifi_ssid, wifi_pwd);
+  int retry = 0;
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    if(retry++ > 5)
+      log(PSTR("Trying to connect to WiFi ssid: %s, status: %s"), wifi_ssid.c_str(), wifiStatus());
+
+    if(retry++ > 20) {
+      Utils::buzzer(3);
+      retry = 0;
+      //return immediately
+      log(PSTR("Unable to connect to WiFi ssid: %s, status: %s"), wifi_ssid.c_str(), wifiStatus());
+      if(wsetup) return false;
+    }
+    yield();
+    delay(500);
+  }
+
+  log(PSTR("Connected to WiFi SSID %s IP address: %s"), wifi_ssid.c_str(), WiFi.localIP().toString().c_str());
+
+  /* if (MDNS.begin("rapidomize")) {
+    Serial.println(F("MDNS responder started"));
+  } */
+  
+  //WiFi.disconnect(true);    //disconnect from wifi AP to set wifi connection in STA
+  /* if(WiFi.getMode() == WIFI_AP_STA && prefs->isKey("ap") != PT_INVALID && !prefs->getBool("ap"))
+    WiFi.mode(WIFI_STA); */    
+
+  prefs->putString("wifi_ssid", wifi_ssid);
+  prefs->putString("wifi_pwd", wifi_pwd);
+  save();
+
+  return true;
 }
 
 bool ConProvider::canConnectMQTT(){
@@ -514,6 +714,28 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
   rpzfmt = prefs->getBool("rpzfmt", true);
 
   scan();
+  ethSt = ETH.begin();
+
+/*   if (!LittleFS.begin()) {
+    LittleFS.format();
+    LittleFS.begin();
+  } */
+
+  //provide page for config or reconfig
+  if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0){
+    WiFi.disconnect(); //if any previous connections?
+    delay(100);
+    wifi_ssid.clear();
+    wifi_pwd.clear();
+
+    Serial.printf(PSTR("Creating AP %s"), AP_SSID);
+    WiFi.softAP(AP_SSID, NULL);//AP_PWD
+    
+    IPAddress myIP = WiFi.softAPIP();
+    Serial.printf(PSTR(" IP address: %s\n"), myIP.toString().c_str());
+  }else{
+    connectWiFi();
+  }
 
   //SSE
   events.onConnect([this](AsyncEventSourceClient *client){
@@ -542,21 +764,37 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
   server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
     this->homePage(request);
   });
+  server.on("/auth", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    this->onAuth(request);
+  }, NULL, aggregator);
+  server.on("/logout", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    authst = false;
+    disableTimer(false);
+    request->send(200, "application/json", "{\"url\":\"/\"}");
+  }, NULL, aggregator);
+  server.on("/prefs", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    if(!checkAuth(request)) return;
+    this->onPrefs(request);
+  }, NULL, aggregator);
   server.on("/wifi", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    if(!checkAuth(request)) return;
     this->onWifi(request);
   }, NULL, aggregator);
   server.on("/mqtt", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    if(!checkAuth(request)) return;
     this->onMqtt(request);
   }, NULL, aggregator);
   server.on("/peri", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    if(!checkAuth(request)) return;
     this->onPeri(request);
   }, NULL, aggregator);
   server.on("/reset", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    if(!checkAuth(request)) return;
     this->onReset(request);
   }, NULL, aggregator);
   server.on("/fwurl", HTTP_POST, [this](AsyncWebServerRequest *request) {
-    HTTPClient http;
-    
+    if(!checkAuth(request)) return;
+
     JsonDocument doc;
     toJson(request, doc);
 
@@ -566,7 +804,18 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
       request->send(400, "application/json", "{\"err\":\"Invalid firmware download url?\"}");
       return;
     }
-    bool value = http.begin(*this->netClient, url);
+
+    yield();
+
+    HTTPClient http;
+    NetworkClientSecure net;
+    net.setCACert(GH_CERT);
+    if (!net.connect("github.com", 443, 1000)) {
+      request->send(400, "application/json", "{\"err\":\"Firmware update connection failed...!\"}");
+      return;
+    }
+    delay(100);
+    bool value = http.begin(net, url);
     Serial.printf("%d", value);
     int httpCode = http.GET();
 
@@ -576,7 +825,8 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
 
         // Start the update process
         if (!Update.begin(http.getSize(), U_FLASH)) {
-          Update.printError(Serial); //Update.errorString()
+          log("Firmware update begin failed: %s", Update.errorString());
+          //Update.printError(Serial);
           request->send(400, "application/json", "{\"err\":\"Firmware update begin failed...!\"}");
           http.end();
           return;
@@ -585,7 +835,8 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
         // Write the stream to the flash memory
         Update.writeStream(*stream);
         if (!Update.end()) {
-          Update.printError(Serial);
+          log("Firmware update ending failed: %s", Update.errorString());
+          //Update.printError(Serial);
           request->send(400, "application/json", "{\"err\":\"Firmware update ending failed...!\"}");
           http.end();
           return;
@@ -605,101 +856,90 @@ void ConProvider::init(PubSubClient *mqttClient, Peripheral **peripherals, Prefe
     http.end();
   }, NULL, aggregator);
   server.on("/fwfile", HTTP_POST, [this](AsyncWebServerRequest *request) {
-      if (request->getResponse()) {
-        Serial.println("response already created");
-        return;
-      }
-      
-      if(fwupdated) {
-        fwupdated = false;
-        log("Firmware image uploaded successfully! Device will be rebooted shortly to start new firmware");
-        request->send(200, "application/json", "{\"err\":\"Firmware image uploaded successfully! Device will be rebooted shortly to start new firmware!\"}");
-        //delay(500);
-        this->onUpgrade(request);
-        return;
-      }
-      request->send(400, "application/json", "{\"err\":\"Firmware image upload failed...!\"}");
+    if(!checkAuth(request)) return;
+    if (request->getResponse()) {
+      Serial.println("response already created");
+      return;
+    }
+    
+    if(fwupdated) {
+      fwupdated = false;
+      log("Firmware image uploaded successfully! Device will be rebooted shortly to start new firmware");
+      request->send(200, "application/json", "{\"err\":\"Firmware image uploaded successfully! Device will be rebooted shortly to start new firmware!\"}");
+      //delay(500);
+      this->onUpgrade(request);
+      return;
+    }
+    log("Firmware image upload failed");
+    request->send(400, "application/json", "{\"err\":\"Firmware image upload failed...!\"}");
   },
   [this](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-      Serial.printf("Upload[%s]: index=%u, len=%u, final=%d\n", filename.c_str(), index, len, final);
+    Serial.printf("Upload[%s]: index=%u, len=%u, final=%d\n", filename.c_str(), index, len, final);
 
-      if (request->getResponse()) {
-        log("Firmware upload aborted");
+    if (request->getResponse()) {
+      log("Firmware upload aborted");
+      return;
+    }
+
+    // start a new content-disposition upload
+    if (!index) {
+      // list all parameters
+      const size_t params = request->params();
+      for (size_t i = 0; i < params; i++) {
+        const AsyncWebParameter *p = request->getParam(i);
+        Serial.printf("Param[%u]: %s=%s, isPost=%d, isFile=%d, size=%u\n", i, p->name().c_str(), p->value().c_str(), p->isPost(), p->isFile(), p->size());
+      }
+
+      // get the content-disposition parameter
+      const AsyncWebParameter *p = request->getParam(asyncsrv::T_name, true, true);
+      if (p == nullptr) {
+        log("Missing firmware binary");
+        request->send(400, "application/json", "{\"err\":\"Missing firmware binary?\"}");
         return;
       }
 
-      // start a new content-disposition upload
-      if (!index) {
-        // list all parameters
-        const size_t params = request->params();
-        for (size_t i = 0; i < params; i++) {
-          const AsyncWebParameter *p = request->getParam(i);
-          Serial.printf("Param[%u]: %s=%s, isPost=%d, isFile=%d, size=%u\n", i, p->name().c_str(), p->value().c_str(), p->isPost(), p->isFile(), p->size());
-        }
-
-        // get the content-disposition parameter
-        const AsyncWebParameter *p = request->getParam(asyncsrv::T_name, true, true);
-        if (p == nullptr) {
-          request->send(400, "application/json", "{\"err\":\"Missing firmware binary?\"}");
+      // determine upload type based on the parameter name
+      if (p->value() == "fw_file") {
+        log("Firmware image upload file: %s\n", filename.c_str());
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) {
+          log("Firmware update begin failed: %s", Update.errorString());
+          //Update.printError(Serial);
+          request->send(400, "application/json", "{\"err\":\"Firmware update begin failed...!\"}");
           return;
         }
-
-        // determine upload type based on the parameter name
-        if (p->value() == "fw_file") {
-          log("Firmware image upload file: %s\n", filename.c_str());
-          if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) {
-            Update.printError(Serial);
-            request->send(400, "application/json", "{\"err\":\"Firmware update begin failed...!\"}");
-            return;
-          }
-        } else {
-          log("Unknown upload file type: %s\n", filename.c_str());
-          request->send(400, "application/json", "{\"err\":\"Unknown Firmware upload type...!\"}");
-          return;
-        }
+      } else {
+        log("Unknown upload file type: %s\n", filename.c_str());
+        request->send(400, "application/json", "{\"err\":\"Unknown Firmware upload type...!\"}");
+        return;
       }
+    }
 
-      // some bytes to write ?
-      if (len) {
-        if (Update.write(data, len) != len) {
-          Update.printError(Serial);
-          Update.end();
-          request->send(400, "application/json", "{\"err\":\"Firmware update write failed...!\"}");
-          return;
-        }
+    // some bytes to write ?
+    if (len) {
+      if (Update.write(data, len) != len) {
+        log("Firmware update write failed: %s", Update.errorString());
+        //Update.printError(Serial);
+        Update.end();
+        request->send(400, "application/json", "{\"err\":\"Firmware update write failed...!\"}");
+        return;
       }
+    }
 
-      // finish the content-disposition upload
-      if (final) {
-        if (!Update.end(true)) {
-          Update.printError(Serial);
-          request->send(400, "application/json", "{\"err\":\"Firmware update ending failed...!\"}");
-          return;
-        }
-        fwupdated = true;
-        // success response is created in the final request handler when all uploads are completed
-        log("Firmware written successfully - file %s\n", filename.c_str());
+    // finish the content-disposition upload
+    if (final) {
+      if (!Update.end(true)) {
+        log("Firmware update ending failed: %s", Update.errorString());
+        //Update.printError(Serial);
+        request->send(400, "application/json", "{\"err\":\"Firmware update ending failed...!\"}");
+        return;
       }
+      fwupdated = true;
+      // success response is created in the final request handler when all uploads are completed
+      log("Firmware written successfully - file %s\n", filename.c_str());
+    }
   });
 
-  //provide page for config or reconfig
-  if(wifi_ssid.length() == 0 || wifi_pwd.length() == 0){
-    WiFi.disconnect(); //if any previous connections?
-    delay(100);
-    wifi_ssid.clear();
-    wifi_pwd.clear();
-
-    Serial.printf(PSTR("Creating AP %s"), AP_SSID);
-    WiFi.softAP(AP_SSID, NULL);//AP_PWD
-    
-    IPAddress myIP = WiFi.softAPIP();
-    Serial.printf(PSTR(" IP address: %s\n"), myIP.toString().c_str());
-    server.begin();
-  }else{
-    connectWiFi();
-    server.begin();
-    //connectMQTT();
-  }
+  server.begin();
 }
 
 }

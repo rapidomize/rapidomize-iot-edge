@@ -52,6 +52,9 @@ class ConProvider: public Utils{
         char * getWifi();
         char * getMqtt();
         char * getPeri();
+        //char * getFile(const char * name);
+        void onAuth(AsyncWebServerRequest *request);
+        bool checkAuth(AsyncWebServerRequest *request);
         void onWifi(AsyncWebServerRequest *request);
         void onMqtt(AsyncWebServerRequest *request);
         void onPeri(AsyncWebServerRequest *request);
@@ -59,6 +62,7 @@ class ConProvider: public Utils{
         void onUpgrade(AsyncWebServerRequest *request);
         void toJson(AsyncWebServerRequest *request, JsonDocument &doc);
 
+        void onPrefs(AsyncWebServerRequest *request);
         void onReset(AsyncWebServerRequest *request);
         void restart(AsyncWebServerRequest *request);
 
@@ -75,8 +79,9 @@ class ConProvider: public Utils{
         uint8_t ssid_cnt;
         String wifi_ssid;
         String wifi_pwd;
-        String status;
-
+        String wifiSt;
+        bool ethSt;
+        
         AsyncEventSource events;
         AsyncWebServer server;
         NetworkClient *netClient = nullptr;
