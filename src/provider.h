@@ -24,6 +24,7 @@ class ConProvider: public Utils{
         void init(PubSubClient *mqttClient, Peripheral **peripherals, Preferences *prefs);
         bool connectMQTT(bool wsetup=false);
         bool canConnectMQTT();
+        
 
         bool hasSetup = false;
         
@@ -37,13 +38,16 @@ class ConProvider: public Utils{
         bool tls;
         String ver;
         uint8_t qos;
-        int timeout = 3;  //seconds
+        int timeout = 5;  //seconds
         bool rpzfmt = true; //Enable/Disable Rapidomize platform message format
         bool wastls = false; //if we were using secure net client
         bool iswsetup = false;
 
     private:
+        void netInit();
         bool connectWiFi(bool setup=false);
+        bool connectETH(bool setup=false);
+        bool netConnect(bool setup=false);
         void scan();
 
         void homePage(AsyncWebServerRequest *request, int status=200, const char *err=nullptr);
@@ -58,13 +62,15 @@ class ConProvider: public Utils{
         void onWifi(AsyncWebServerRequest *request);
         void onMqtt(AsyncWebServerRequest *request);
         void onPeri(AsyncWebServerRequest *request);
-        
-        void onUpgrade(AsyncWebServerRequest *request);
-        void toJson(AsyncWebServerRequest *request, JsonDocument &doc);
-
         void onPrefs(AsyncWebServerRequest *request);
         void onReset(AsyncWebServerRequest *request);
         void restart(AsyncWebServerRequest *request);
+        void onFwUrl(AsyncWebServerRequest *request);
+        void onFwFile(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
+        void onUpgrade(AsyncWebServerRequest *request);
+
+        void onNetEvent(arduino_event_id_t event);
+        void toJson(AsyncWebServerRequest *request, JsonDocument &doc);
 
         const char * wifiStatus();
 
@@ -79,8 +85,12 @@ class ConProvider: public Utils{
         uint8_t ssid_cnt;
         String wifi_ssid;
         String wifi_pwd;
-        String wifiSt;
+        String wifiStStr;
         bool ethSt;
+        bool wifiSt;
+        arduino_event_id_t lstEv;
+        bool isEthCon = false;
+        bool isWifiCon = false;
         
         AsyncEventSource events;
         AsyncWebServer server;

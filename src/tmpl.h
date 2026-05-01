@@ -140,17 +140,16 @@ const char *main_tmpl = R"(
                 background-image: url("data:image/svg+xml,%%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%%3e%%3cpath fill='none' stroke='%%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%%3e%%3c/svg%%3e");
             }
             .sv-btn{
-                width: 24px;
-                height: 24px;
+                 width: 26px;
+                height: 26px;
                 border: 0;
                 right: 0px;
-                padding: 4px;
+                padding: 1px;
                 color: #fff;
                 background-color: #37a000;
                 cursor: pointer;
                 display: inline-flex;
-                align-items: center;
-                font-size: 18px;
+                font-size: 24px;
             }
             .sv-btn:hover { background-color: #297701; }
             .sv-btn:active{
@@ -158,8 +157,8 @@ const char *main_tmpl = R"(
                 border-color: #37a000;
             }
             .sv-btn:disabled {
-                background-color: gray;
-                border-color: gray;  
+                background-color: rgb(156, 156, 156);
+                border-color: rgb(156, 156, 156);  
             }
             .ptitle{
                 border: 0; 
@@ -201,7 +200,6 @@ const char *main_tmpl = R"(
         <div class="footer">
             <p>Copyright &copy; Rapidomize LLC. All Rights Reserved.</p>
         </div>   
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/js/all.min.js"></script>
         <script>
             const forms = document.getElementsByTagName('form');
             const msg = document.getElementById('msg');
@@ -381,7 +379,8 @@ const char *dash_tmpl = R"(
         <tr><td>Firmware Version</td><td>%s</td></tr>
         <tr><td style="width: 150px;">CPU Freq</td><td>%dMHz</td></tr>
         <tr><td>Image Size</td><td>%dKB</td></tr>
-        <tr><td>IP Address</td><td>%s</td></tr>
+        <tr><td>WiFi IP</td><td>%s</td></tr>
+        <tr><td>Ethernet IP</td><td>%s</td></tr>
     </table>
     <div class="cards mt-10">
         %s
@@ -389,15 +388,18 @@ const char *dash_tmpl = R"(
 </div>
 )";
 
-const char *wifi_tmpl = R"(
+const char *netwrk_tmpl = R"(
 <input type="radio" class="tabs__radio" name="atabs" id="tab2">
-<label for="tab2" class="tabs__label">WiFi</label>
+<label for="tab2" class="tabs__label">Network</label>
 <div class="tabs__content">
-    <form action="/wifi" method="post" class="column">
-        <h2>WiFi Networks</h2>
+    <h2>Network Settings</h2>
+    <p>Network connectivity uses DHCP</p>
+    <form action="/wifi" method="post" class="column card mt-30">
+        <h2>WiFi</h2>
         <div class="row mt-10"><div style="margin-right: 10px;">IP:</div><div>%s</div></div>
+        <div class="row mt-10"><div style="margin-right: 10px;">MAC:</div><div>%s</div></div>
         <p>Select a WiFi network and provide it's credentials</p>
-        <label class="card" style="padding: 10px;">SSIDs:
+        <label style="padding: 10px;">SSIDs:
             <div class="column">
                 %s
             </div>
@@ -407,6 +409,11 @@ const char *wifi_tmpl = R"(
         </label>
         <input type="submit"  value="Connect" class="brdr" style="margin: 20px auto; width: 200px;">
     </form>
+    <div class="column card mt-30">
+        <h2>Ethernet</h2>
+        <div class="row mt-10"><div style="margin-right: 10px;">IP:</div><div>%s</div></div>
+        <div class="row mt-10"><div style="margin-right: 10px;">MAC:</div><div>%s</div></div>
+    </div>
 </div>
 )";
 
@@ -414,11 +421,11 @@ const char *mqtt_tmpl = R"(
 <input type="radio" class="tabs__radio" name="atabs" id="tab3">
 <label for="tab3" class="tabs__label">MQTT</label>
 <div class="tabs__content">
-    <form action="/mqtt" method="post" class="column">
-        <h2>MQTT Broker</h2>
-        <p>Specify MQTT Broker details.</p>
+    <h2>MQTT Broker Settings</h2>
+    <p>Specify MQTT Broker details.</p>
+    <form action="/mqtt" method="post" class="column card">
         <div class="column" style="grid-gap: 5px;">
-            <table class="card">
+            <table>
                 <tr><td>Host</td><td class="fx"><input type="text" name="host" value="%s" class="fx-g" required></td></tr>
                 <tr><td>Port</td><td><input type="number" name="port" value="%d" required></td></tr>
                 <tr><td>TLS/SSL</td><td><input type="checkbox" name="tls" %s></td></tr>

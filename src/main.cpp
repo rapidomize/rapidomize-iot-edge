@@ -8,6 +8,8 @@ extern rpz::Device device;
 
 void setup() {
     Serial.begin(115200);
+    //while (!Serial);
+    delay(1000);
     Serial.println();
     Serial.println(F("init()"));
 

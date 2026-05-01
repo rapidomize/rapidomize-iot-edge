@@ -1,6 +1,8 @@
 #ifndef RPZ_SHA256_H_
 #define RPZ_SHA256_H_
 
+#include <Arduino.h>
+
 #include <iostream>
 #include <string>
 #include <vector>

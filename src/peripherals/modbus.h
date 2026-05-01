@@ -34,7 +34,7 @@ const char *MODBUS_tmpl = R"(
         <div class="row pos-r mb-40">
             <input type="text" name="id" class="pos-a ptitle" value="%s" readonly>
             <input type="checkbox" name="enabled" %s  class="pos-a" style="right: 30px;">
-            <button type="submit" class="sv-btn brdr pos-a"><i class="fa-solid fa-floppy-disk"></i></button>
+            <button type="submit" class="sv-btn brdr pos-a">&#x1F4BE;</button>
         </div>
         <table>
             <tr><td>Interface</td><td>RS485 - Modbus RTU</td></tr>
