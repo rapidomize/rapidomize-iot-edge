@@ -1,6 +1,21 @@
 #ifndef RPZ_CERT_H_
 #define RPZ_CERT_H_
 
+/* 
+    Local Access Point(iot_edge) and Webserver - Intension of using them is only within a 
+    LAN which is secure and is not intended to use them from internet! So by default 
+    TLS/SSL is not supported for them. When using self signed certificates browser do not
+    accepted them as legit certificates for IP addresses, like 192.168.*.* or 10.*.*.* 
+    so your browsers will complain as it is not secure.
+
+    TLS/SSL is supported for MQTT connectivity to send & receive data & commands/control
+    across internet.
+    
+    If using self-signed certificate for Access Point(iot_edge) and Webserver
+    Use ECC (Elliptic Curve Cryptography) certificates to significantly reduce 
+    the memory footprint and handshake time as RSA 2048-bit keys can be heavy.
+*/
+
 namespace rpz{
 
 //ISRG Root X1
