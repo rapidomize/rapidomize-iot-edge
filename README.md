@@ -2,11 +2,9 @@
 Embedded C/C++ SDK to build your own IoT controller solutions for ESP32 based devices. 
 Use it with Rapidomize IoT platform or with any MQTT server.
 
-
 ## H/W Models supported
 - Generic ESP32 devices
 - [IoT Edge Controller: rpz-d2x2t2ux-we](https://rapidomize.com/docs/solutions/iot/device/rpz-d2x2t2ux-we/)
-
 
 # Features
 ### System Info
@@ -49,6 +47,7 @@ You can reset the devices to its factory state. It will remove all the configura
 - [ ] Command control
 - [ ] Automatic OTA updates
 - [ ] Makefile
+- [ ] ESP-IDF version
 
 
 ## Firmware Installation (Flashing)
@@ -191,6 +190,7 @@ There are few example peripherals in the default firmware build. If you need any
 
 # Status
 version 0.7.5 - 'Dugong Weasel'
+- Current version uses ESP32 Arduino Core for fast prototyping. ESP-IDF version is comming soon.
 
 # Contributions?
 Contributions are highly welcome. If you’re interested in contributing leave a note with your username.
